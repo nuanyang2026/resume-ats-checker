@@ -1,7 +1,10 @@
 /**
- * Parse resume file to plain text in the browser.
- * Supports PDF (via pdf.js) and Word (.docx via mammoth).
- * No file is uploaded to any server at this stage.
+ * Parse resume file to plain text entirely in the browser.
+ * No file is sent to any server at this stage.
+ *
+ * Supports:
+ *  - PDF  → pdfjs-dist
+ *  - DOCX → mammoth
  */
 export async function parseResume(file: File): Promise<string> {
   const ext = file.name.split('.').pop()?.toLowerCase()
@@ -11,37 +14,52 @@ export async function parseResume(file: File): Promise<string> {
   } else if (ext === 'docx' || ext === 'doc') {
     return parseWord(file)
   } else {
-    throw new Error('Unsupported file format. Please upload a PDF or Word document.')
+    throw new Error('Unsupported file format. Please upload a PDF or Word (.docx) document.')
   }
 }
 
 async function parsePDF(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer()
 
-  // Dynamically import pdf.js to avoid SSR issues
+  // Dynamic import to avoid SSR issues
   const pdfjsLib = await import('pdfjs-dist')
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
 
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
-  const textParts: string[] = []
+  // Use CDN worker to avoid bundling the large worker file
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
 
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i)
+  const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) })
+  const pdf = await loadingTask.promise
+
+  const pages: string[] = []
+
+  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+    const page = await pdf.getPage(pageNum)
     const textContent = await page.getTextContent()
+
+    // Reconstruct readable text, preserving line breaks where possible
     const pageText = textContent.items
-      .map((item: any) => item.str)
+      .map((item: any) => {
+        if ('str' in item) return item.str
+        return ''
+      })
       .join(' ')
-    textParts.push(pageText)
+
+    pages.push(pageText)
   }
 
-  return textParts.join('\n')
+  return pages.join('\n\n')
 }
 
 async function parseWord(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer()
 
-  // Dynamically import mammoth
+  // Dynamic import — mammoth is large, lazy-load it
   const mammoth = await import('mammoth')
   const result = await mammoth.extractRawText({ arrayBuffer })
+
+  if (result.messages.length > 0) {
+    console.warn('Mammoth warnings:', result.messages)
+  }
+
   return result.value
 }
