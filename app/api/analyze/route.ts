@@ -14,26 +14,27 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY
+    const apiKey = process.env.OPENROUTER_API_KEY
     if (!apiKey) {
       return NextResponse.json(
-        { error: 'API key not configured. Please set ANTHROPIC_API_KEY in your environment.' },
+        { error: 'API key not configured. Please set OPENROUTER_API_KEY in your environment.' },
         { status: 500 }
       )
     }
 
     const prompt = buildPrompt(resumeText.slice(0, 8000), jdText || '')
 
-    // Call Claude API (Anthropic Messages API)
-    const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
+    // Call Claude via OpenRouter (OpenAI-compatible API)
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
+        'Authorization': `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://resume-ats-checker.pages.dev',
+        'X-Title': 'Resume ATS Checker',
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'anthropic/claude-3.5-sonnet',
         max_tokens: 1500,
         messages: [
           {
@@ -44,19 +45,19 @@ export async function POST(req: NextRequest) {
       }),
     })
 
-    if (!anthropicRes.ok) {
-      const errBody = await anthropicRes.text()
-      console.error('Claude API error:', errBody)
+    if (!res.ok) {
+      const errBody = await res.text()
+      console.error('OpenRouter API error:', errBody)
       return NextResponse.json(
         { error: 'AI analysis failed. Please try again later.' },
         { status: 502 }
       )
     }
 
-    const anthropicData = await anthropicRes.json()
+    const data = await res.json()
 
-    // Claude response format: content[0].text
-    const content = anthropicData.content?.[0]?.text
+    // OpenAI-compatible response format: choices[0].message.content
+    const content = data.choices?.[0]?.message?.content
 
     if (!content) {
       return NextResponse.json({ error: 'Empty response from AI.' }, { status: 502 })
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest) {
     // Extract JSON block from the response (handles markdown code fences too)
     const jsonMatch = content.match(/```json\s*([\s\S]*?)```/) ||
                       content.match(/(\{[\s\S]*\})/)
-    
+
     if (!jsonMatch) {
       console.error('Could not find JSON in response:', content)
       return NextResponse.json({ error: 'Could not parse AI response.' }, { status: 502 })
