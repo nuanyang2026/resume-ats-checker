@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
         'X-Title': 'Resume ATS Checker',
       },
       body: JSON.stringify({
-        model: 'anthropic/claude-3.5-sonnet',
+        model: 'openai/gpt-oss-20b:free',
         max_tokens: 1500,
         messages: [
           {
