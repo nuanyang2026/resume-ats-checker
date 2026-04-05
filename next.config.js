@@ -1,7 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // For Cloudflare Pages, use 'export' for static or leave default for Node runtime
-  // Switch to 'standalone' only when deploying to Node-based infra
   reactStrictMode: true,
   experimental: {
     serverComponentsExternalPackages: ['mammoth'],

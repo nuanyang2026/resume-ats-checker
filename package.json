@@ -5,8 +5,10 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:cf": "npx @cloudflare/next-on-pages@1",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "preview": "npx wrangler pages dev"
   },
   "dependencies": {
     "next": "14.2.3",
@@ -16,6 +18,8 @@
     "mammoth": "^1.8.0"
   },
   "devDependencies": {
+    "@cloudflare/next-on-pages": "^1",
+    "wrangler": "^3",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
